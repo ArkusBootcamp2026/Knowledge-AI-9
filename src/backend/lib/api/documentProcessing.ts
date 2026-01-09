@@ -14,6 +14,67 @@ const openai = openaiApiKey ? new OpenAI({
 }) : null;
 
 /**
+ * Detecta chunks que probablemente sean portadas, índices o tablas de contenido.
+ * Evita generar embeddings para texto estructural con poca semántica.
+ */
+function isLikelyStructuralChunk(chunk: string): boolean {
+  const text = chunk.trim();
+  if (text.length === 0) {
+    return true;
+  }
+
+  const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const words = text.split(/\s+/).filter(Boolean);
+  const wordCount = words.length;
+  const uniqueWords = new Set(words.map(w => w.toLowerCase())).size;
+  const digitCount = (text.match(/\d/g) || []).length;
+  const alphaCount = (text.match(/[a-zA-ZÁÉÍÓÚáéíóúÑñ]/g) || []).length;
+  const digitRatio = (alphaCount + digitCount) === 0 ? 0 : digitCount / (alphaCount + digitCount);
+  const lowerText = text.toLowerCase();
+  const avgWordsPerLine = lines.length === 0 ? wordCount : wordCount / lines.length;
+
+  const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+  const meaningfulSentences = sentences.filter(sentence => sentence.split(/\s+/).filter(Boolean).length >= 6);
+  const hasMeaningfulSentence = meaningfulSentences.length > 0;
+
+  const tocKeywords = ['indice', 'índice', 'table of contents', 'contenido', 'contenidos', 'contents'];
+  const coverKeywords = ['portada', 'cover', 'autor', 'author', 'versión', 'version', 'fecha', 'confidencial', 'revisión', 'revision'];
+
+  const hasTocKeyword = tocKeywords.some(keyword => lowerText.includes(keyword));
+  const hasCoverKeyword = coverKeywords.some(keyword => lowerText.includes(keyword));
+
+  const numberingLines = lines.filter(line => /^(\d+(\.\d+)*|[ivxlcdm]+\.)\s+/i.test(line)).length;
+  const dotLeaderLines = lines.filter(line => /\.{3,}\s*\d+$/.test(line)).length;
+  const structuralLineRatio = lines.length === 0 ? 0 : (numberingLines + dotLeaderLines) / lines.length;
+
+  const looksLikeToc =
+    (hasTocKeyword && structuralLineRatio >= 0.2) ||
+    (structuralLineRatio >= 0.6 && avgWordsPerLine <= 8 && lines.length >= 4) ||
+    dotLeaderLines >= 3;
+
+  const looksLikeCover =
+    hasCoverKeyword &&
+    wordCount <= 150 &&
+    lines.length <= 15 &&
+    !hasMeaningfulSentence;
+
+  const highDigitShortText =
+    digitRatio >= 0.6 &&
+    wordCount <= 40 &&
+    !hasMeaningfulSentence;
+
+  const veryLowSemantic =
+    uniqueWords <= 4 &&
+    wordCount <= 10;
+
+  if (hasMeaningfulSentence) {
+    return false;
+  }
+
+  return looksLikeToc || looksLikeCover || highDigitShortText || veryLowSemantic;
+}
+
+/**
  * Procesa documentos automáticamente: extrae texto, crea chunks y genera embeddings
  * Soporta archivos TXT, PDF y Markdown (.md)
  */
@@ -199,9 +260,22 @@ export async function processDocumentsAutomatically(): Promise<boolean> {
         // Tamaño mayor y overlap más generoso para mantener contexto
         const chunks = splitIntoChunks(text, 1200, 200);
 
+        // Filtrar chunks estructurales (índices/portadas/TOC) antes de generar embeddings
+        const semanticChunks = chunks.filter(chunk => !isLikelyStructuralChunk(chunk));
+        const skippedChunks = chunks.length - semanticChunks.length;
+
+        if (skippedChunks > 0) {
+          console.log(`ⓘ Chunks descartados por estructurales para "${doc.file_name}": ${skippedChunks}/${chunks.length}`);
+        }
+
+        if (semanticChunks.length === 0) {
+          console.warn(`⚠️ Todos los chunks de "${doc.file_name}" parecen estructurales (portada/índice). Se omite generación de embeddings.`);
+          continue;
+        }
+
         // 5. Generar embeddings y guardar chunks
-        for (let i = 0; i < chunks.length; i++) {
-          const chunk = chunks[i];
+        for (let i = 0; i < semanticChunks.length; i++) {
+          const chunk = semanticChunks[i];
           
           try {
             // Generar embedding
@@ -227,8 +301,8 @@ export async function processDocumentsAutomatically(): Promise<boolean> {
               console.error(`❌ Error guardando chunk ${i + 1}/${chunks.length} de ${doc.file_name}:`, insertError);
               console.error('Detalles del error:', JSON.stringify(insertError, null, 2));
             } else {
-              if ((i + 1) % 5 === 0 || i === chunks.length - 1) {
-                console.log(`  → Chunk ${i + 1}/${chunks.length} guardado para ${doc.file_name}`);
+              if ((i + 1) % 5 === 0 || i === semanticChunks.length - 1) {
+                console.log(`  → Chunk ${i + 1}/${semanticChunks.length} guardado para ${doc.file_name}`);
               }
             }
           } catch (chunkError) {
@@ -245,11 +319,12 @@ export async function processDocumentsAutomatically(): Promise<boolean> {
           .not('embedding', 'is', null);
         
         console.log(`✓✓✓ Documento "${doc.file_name}" procesado exitosamente:`);
-        console.log(`   → Chunks creados: ${chunks.length}`);
-        console.log(`   → Chunks guardados en BD con embeddings: ${chunksCount || 0}`);
+        console.log(`   → Chunks totales detectados: ${chunks.length}`);
+        console.log(`   → Chunks descartados por estructurales: ${skippedChunks}`);
+        console.log(`   → Chunks con embeddings guardados: ${chunksCount || 0}`);
         
-        if (chunksCount !== chunks.length) {
-          console.warn(`⚠️ Advertencia: Se intentaron crear ${chunks.length} chunks pero solo ${chunksCount} se guardaron correctamente`);
+        if (chunksCount !== semanticChunks.length) {
+          console.warn(`⚠️ Advertencia: Se intentaron crear ${semanticChunks.length} chunks útiles pero solo ${chunksCount} se guardaron correctamente`);
         }
       } catch (docError) {
         console.error(`Error procesando documento ${doc.file_name}:`, docError);
