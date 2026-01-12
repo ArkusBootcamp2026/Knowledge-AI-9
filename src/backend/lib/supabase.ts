@@ -10,23 +10,45 @@ const hasValidCredentials = !!(supabaseUrl && supabaseAnonKey &&
   supabaseAnonKey !== 'placeholder-key');
 
 if (!hasValidCredentials) {
+  // Intentar detectar la ruta del proyecto para el mensaje de error
+  let envFilePath = '.env (en la raíz del proyecto, mismo nivel que package.json)';
+  
+  try {
+    // En Node.js podemos obtener la ruta real
+    if (typeof process !== 'undefined' && typeof process.cwd === 'function') {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const path = require('path');
+      const projectRoot = process.cwd();
+      envFilePath = path.join(projectRoot, '.env');
+    }
+  } catch (e) {
+    // Si falla (por ejemplo, en el navegador o módulos no disponibles), usar valor por defecto
+  }
+  
   const errorMessage = `
 ⚠️ Supabase credentials not found!
 
-Please create a .env file in the root of your project with:
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+📁 Ubicación del archivo .env:
+   ${envFilePath}
 
-After creating/updating .env, restart the dev server with: npm run dev
+📝 Contenido del archivo .env:
+   VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
+   VITE_SUPABASE_ANON_KEY=tu_anon_key_aqui
 
-Current values:
-VITE_SUPABASE_URL: ${supabaseUrl ? '✓ Set' : '✗ Missing'}
-VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? '✓ Set' : '✗ Missing'}
+⚠️ IMPORTANTE:
+   1. Crea el archivo .env en la raíz del proyecto (donde está package.json)
+   2. Agrega las variables VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
+   3. Reinicia el servidor: npm run dev
+   (Vite solo lee .env al iniciar)
 
-Debug info:
-- import.meta.env keys: ${Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')).join(', ') || 'None found'}
-- VITE_SUPABASE_URL value: ${supabaseUrl || '(empty)'}
-- VITE_SUPABASE_ANON_KEY value: ${supabaseAnonKey ? '***' + supabaseAnonKey.slice(-4) : '(empty)'}
+Estado actual:
+   VITE_SUPABASE_URL: ${supabaseUrl ? '✓ Configurada' : '✗ No configurada'}
+   VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? '✓ Configurada' : '✗ No configurada'}
+
+Debug:
+   - Claves VITE_ encontradas: ${Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')).join(', ') || 'Ninguna'}
+   - VITE_SUPABASE_URL: ${supabaseUrl || '(vacío)'}
+   - VITE_SUPABASE_ANON_KEY: ${supabaseAnonKey ? '***' + supabaseAnonKey.slice(-4) : '(vacío)'}
   `;
   console.error(errorMessage);
 }

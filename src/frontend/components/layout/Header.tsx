@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Search, User } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface HeaderProps {
   onSearch?: (query: string) => void;
@@ -33,6 +34,7 @@ export function Header({ onSearch }: HeaderProps) {
 
       {/* User Info */}
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         <div className="text-right hidden sm:block">
           <p className="text-sm font-medium leading-none">Usuario Demo</p>
           <p className="text-xs text-muted-foreground">demo@knowledgehub.ai</p>

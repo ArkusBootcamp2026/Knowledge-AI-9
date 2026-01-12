@@ -17,6 +17,24 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@Lovable" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- Script para aplicar el tema antes de que React se monte (evita FOUC) -->
+    <script>
+      (function() {
+        const THEME_STORAGE_KEY = 'knowledgehub-theme';
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        const theme = stored || 'system';
+        
+        let effectiveTheme = 'light';
+        if (theme === 'dark') {
+          effectiveTheme = 'dark';
+        } else if (theme === 'system') {
+          effectiveTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        
+        document.documentElement.classList.add(effectiveTheme);
+      })();
+    </script>
   </head>
 
   <body>

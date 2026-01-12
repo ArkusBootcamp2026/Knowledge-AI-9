@@ -203,7 +203,7 @@ export async function processDocumentsAutomatically(): Promise<boolean> {
 
         // Extraer texto según el tipo de archivo
         let text: string = '';
-        
+
         try {
           if (fileExt === 'pdf') {
             // Procesar PDF usando pdfjs-dist (compatible con navegador)
