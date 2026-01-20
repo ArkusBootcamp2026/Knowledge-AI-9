@@ -298,17 +298,32 @@ See [`docs/OPENAI_SETUP.md`](./docs/OPENAI_SETUP.md) for:
 npm run build
 ```
 
+### Deploy to Vercel
+
+The project is configured for Vercel deployment. See [`docs/VERCEL_DEPLOYMENT.md`](./docs/VERCEL_DEPLOYMENT.md) for detailed instructions.
+
+**Quick Start:**
+
+1. Push your code to a Git repository (GitHub, GitLab, or Bitbucket)
+2. Go to [Vercel Dashboard](https://vercel.com/dashboard)
+3. Click **"Add New Project"** and import your repository
+4. Vercel will auto-detect the Vite configuration
+5. Add environment variables (see below)
+6. Click **"Deploy"**
+
 ### Environment Variables in Production
 
 Make sure to configure the same environment variables on your deployment platform:
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_OPENAI_API_KEY`
+- `VITE_SUPABASE_URL` - Your Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Your Supabase anonymous key
+- `VITE_OPENAI_API_KEY` - Your OpenAI API key
+
+**Important**: After adding environment variables in Vercel, you must redeploy for them to take effect.
 
 ### Recommended Platforms
 
-- **Vercel** - Automatic deployment from Git
+- **Vercel** - Automatic deployment from Git (recommended, see [`docs/VERCEL_DEPLOYMENT.md`](./docs/VERCEL_DEPLOYMENT.md))
 - **Netlify** - Similar to Vercel
 - **Supabase Hosting** - Native Supabase integration
 
